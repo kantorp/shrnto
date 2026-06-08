@@ -1,14 +1,16 @@
 "use client";
 
-import { useState } from "react";
 import type { Brief } from "@/lib/brief";
+import { usePreferences } from "@/lib/preferences";
 import { BriefHero } from "@/components/brief-hero";
 import { RubrikaSection } from "@/components/rubrika-section";
-
-type Length = "short" | "long";
+import { SegControl } from "@/components/seg-control";
 
 export function BriefView({ brief }: { brief: Brief }) {
-  const [length, setLength] = useState<Length>("long");
+  const { prefs, update, loaded } = usePreferences();
+  if (!loaded) return null;
+
+  const length = prefs.length;
 
   const rubriky = brief.rubriky.map((r) => ({
     ...r,
@@ -19,21 +21,15 @@ export function BriefView({ brief }: { brief: Brief }) {
     <>
       <BriefHero brief={brief} />
 
-      <div className="mt-8 flex items-center gap-1 rounded-full border border-divider bg-surface p-1 w-fit">
-        {(["short", "long"] as const).map((opt) => (
-          <button
-            key={opt}
-            onClick={() => setLength(opt)}
-            className={
-              "rounded-full px-3 py-1 font-mono text-[11px] tracking-[0.04em] transition-colors " +
-              (length === opt
-                ? "bg-brand text-white"
-                : "text-ink-3 hover:text-ink")
-            }
-          >
-            {opt === "short" ? "Krátký" : "Delší"}
-          </button>
-        ))}
+      <div className="mt-8">
+        <SegControl
+          value={length}
+          onChange={(v) => update({ length: v })}
+          options={[
+            { value: "short", label: "Krátký" },
+            { value: "long", label: "Delší" },
+          ]}
+        />
       </div>
 
       <div className="mt-8 flex flex-col gap-8">

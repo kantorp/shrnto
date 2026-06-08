@@ -10,7 +10,7 @@
 
   /* fonty — tvoje sada */
   --font-sans: var(--font-inter);
-  --font-mono: var(--font-mono);
+  --font-mono: var(--font-mono), ui-monospace, monospace;
   --font-display: var(--font-newsreader);
   --font-heading: var(--font-newsreader);
 
@@ -110,9 +110,7 @@
     @apply border-border outline-ring/50;
   }
   body {
+    font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
     @apply bg-background text-foreground;
-  }
-  html {
-    @apply font-sans;
   }
 }
