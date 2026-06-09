@@ -9,6 +9,7 @@ export type Story = {
   title: string;
   author?: string | null;
   body: StorySpan[];
+  shortBody?: StorySpan[];
 };
 
 export type BriefRubrika = {

@@ -21,7 +21,6 @@ export function BriefView({ fallbackCs, fallbackEn }: { fallbackCs: Brief; fallb
     const fallback = prefs.language === "en" ? fallbackEn : fallbackCs;
     const sourcesKey = [...prefs.sources].sort().join(",");
 
-    // default kombinace (všechny zdroje) → bundled brief v daném jazyce, žádné API
     if (sourcesKey === "cz,sk,svet") {
       setBrief(fallback);
       return;
@@ -64,7 +63,10 @@ export function BriefView({ fallbackCs, fallbackEn }: { fallbackCs: Brief; fallb
   const active = brief ?? (prefs.language === "en" ? fallbackEn : fallbackCs);
   const rubriky = active.rubriky.map((r) => ({
     ...r,
-    stories: prefs.length === "short" ? r.stories.slice(0, 3) : r.stories,
+    stories: r.stories.map((s) => ({
+      ...s,
+      body: prefs.length === "short" ? (s.shortBody ?? s.body) : s.body,
+    })),
   }));
 
   return (

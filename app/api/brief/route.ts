@@ -62,6 +62,8 @@ FORMÁT TĚLA: tělo je pole útržků, které se střídají:
 - { "type": "src", "source": "HN", "ref": "art_012" }   ← badge hned ZA tvrzením; "ref" je ID článku ve složených závorkách {…} z dodaného seznamu, ze kterého tvrzení pochází
 Použij PŘESNÉ kódy zdroje (HN, FT_online, FT_print, NYT, FAZ, DenikN_sk) a PŘESNÉ ref ID z dodaných článků (nikdy si ref nevymýšlej).
 
+KRÁTKÁ VERZE: ke každé story navíc vytvoř pole "shortBody" ve STEJNÉM formátu útržků (text/src) — stručné shrnutí v rozsahu zhruba 2 věty na JEDEN zdrojový článek. Pokud story konsoliduje více zdrojů, krátkou verzi úměrně rozšiř (cca 2 věty na každý konsolidovaný zdroj), ať zůstane přehledná a scanovatelná. Zachovej i v krátké verzi klíčovou atribuci (src útržky s ref).
+
 "spotlight" = 2–3 věty o tom nejdůležitějším pro dnešek (bez zdrojů).
 
 Vrať POUZE validní JSON, bez markdownu.`;
@@ -86,6 +88,12 @@ Vrať JSON přesně v tomto tvaru:
             { "type": "src", "source": "HN", "ref": "art_031" },
             { "type": "text", "text": ". FT k tomu dodává, že IEA varuje před růstem cen ropy" },
             { "type": "src", "source": "FT_online", "ref": "art_007" }
+          ],
+          "shortBody": [
+            { "type": "text", "text": "Vláda zvažuje úlevy na ceně elektřiny" },
+            { "type": "src", "source": "HN", "ref": "art_031" },
+            { "type": "text", "text": ", IEA zároveň varuje před růstem cen ropy" },
+            { "type": "src", "source": "FT_online", "ref": "art_007" }
           ]
         }
       ]
@@ -109,19 +117,23 @@ Vrať JSON přesně v tomto tvaru:
 
     const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
 
-    // dohledej reálnou URL (a doplň page) podle ref ID článku
+    // dohledej reálnou URL (a doplň page) podle ref ID — v plné i krátké verzi
     const urlById = new Map(ARTICLES.map((a) => [a.id, { url: a.url, page: a.page }]));
-    for (const r of parsed.rubriky ?? []) {
-      for (const s of r.stories ?? []) {
-        for (const span of s.body ?? []) {
-          if (span.type === "src" && span.ref) {
-            const hit = urlById.get(span.ref);
-            if (hit) {
-              span.url = hit.url;
-              if (span.page == null) span.page = hit.page;
-            }
+    const resolveSpans = (spans: { type: string; ref?: string; url?: string | null; page?: number | null }[] = []) => {
+      for (const span of spans) {
+        if (span.type === "src" && span.ref) {
+          const hit = urlById.get(span.ref);
+          if (hit) {
+            span.url = hit.url;
+            if (span.page == null) span.page = hit.page;
           }
         }
+      }
+    };
+    for (const r of parsed.rubriky ?? []) {
+      for (const s of r.stories ?? []) {
+        resolveSpans(s.body);
+        resolveSpans(s.shortBody);
       }
     }
 
