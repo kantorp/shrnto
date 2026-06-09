@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import type { Source } from "@/components/src-badge";
 
 export type Region = "cz" | "sk" | "svet";
-export type Language = "cs" | "sk" | "en";
+export type Language = "cs" | "en";
 export type Length = "short" | "long";
 
 export type Preferences = {
@@ -35,50 +35,62 @@ export function sourceRegion(source: Source): Region {
 
 const KEY = "shrnto.preferences";
 
-export function loadPreferences(): Preferences {
+function load(): Preferences {
   if (typeof window === "undefined") return DEFAULT_PREFERENCES;
   try {
     const raw = window.localStorage.getItem(KEY);
-    return raw
-      ? { ...DEFAULT_PREFERENCES, ...JSON.parse(raw) }
-      : DEFAULT_PREFERENCES;
+    const parsed = raw ? { ...DEFAULT_PREFERENCES, ...JSON.parse(raw) } : DEFAULT_PREFERENCES;
+    if (parsed.language !== "cs" && parsed.language !== "en") parsed.language = "cs";
+    return parsed;
   } catch {
     return DEFAULT_PREFERENCES;
   }
 }
 
-export function savePreferences(prefs: Preferences) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(KEY, JSON.stringify(prefs));
-  } catch {}
-}
+type Ctx = {
+  prefs: Preferences;
+  update: (patch: Partial<Preferences>) => void;
+  reset: () => void;
+  loaded: boolean;
+};
 
-export function usePreferences() {
+const PreferencesContext = createContext<Ctx | null>(null);
+
+export function PreferencesProvider({ children }: { children: React.ReactNode }) {
   const [prefs, setPrefs] = useState<Preferences>(DEFAULT_PREFERENCES);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    setPrefs(loadPreferences());
+    setPrefs(load());
     setLoaded(true);
   }, []);
 
   const update = useCallback((patch: Partial<Preferences>) => {
     setPrefs((prev) => {
       const next = { ...prev, ...patch };
-      savePreferences(next);
+      try {
+        window.localStorage.setItem(KEY, JSON.stringify(next));
+      } catch {}
       return next;
     });
   }, []);
 
   const reset = useCallback(() => {
-    if (typeof window !== "undefined") {
-      try {
-        window.localStorage.removeItem(KEY);
-      } catch {}
-    }
+    try {
+      window.localStorage.removeItem(KEY);
+    } catch {}
     setPrefs(DEFAULT_PREFERENCES);
   }, []);
 
-  return { prefs, update, reset, loaded };
+  return (
+    <PreferencesContext.Provider value={{ prefs, update, reset, loaded }}>
+      {children}
+    </PreferencesContext.Provider>
+  );
+}
+
+export function usePreferences(): Ctx {
+  const ctx = useContext(PreferencesContext);
+  if (!ctx) throw new Error("usePreferences must be used within PreferencesProvider");
+  return ctx;
 }

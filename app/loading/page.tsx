@@ -2,16 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useT } from "@/lib/i18n";
 import { Wordmark } from "@/components/wordmark";
-
-const STEPS = [
-  "Načítám články z 12 zdrojů",
-  "Píšu tvé první shrnutí",
-  "Připravuji rozhraní",
-];
 
 export default function LoadingPage() {
   const router = useRouter();
+  const t = useT();
   const [step, setStep] = useState(0);
 
   useEffect(() => {
@@ -26,15 +22,11 @@ export default function LoadingPage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-bg px-6">
       <Wordmark className="text-2xl" />
-      <h1 className="mt-10 font-display text-2xl font-medium text-ink">
-        Připravuji tvůj brief.
-      </h1>
-      <p className="mt-1 font-sans text-[15px] text-ink-3">
-        Obvykle 15–20 sekund
-      </p>
+      <h1 className="mt-10 font-display text-2xl font-medium text-ink">{t.loading.title}</h1>
+      <p className="mt-1 font-sans text-[15px] text-ink-3">{t.loading.sub}</p>
 
       <ul className="mt-10 flex flex-col gap-3">
-        {STEPS.map((label, i) => {
+        {t.loading.steps.map((label, i) => {
           const done = i < step;
           const active = i === step;
           return (
@@ -57,12 +49,7 @@ export default function LoadingPage() {
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand" />
                 ) : null}
               </span>
-              <span
-                className={
-                  "font-sans text-[14px] transition-colors " +
-                  (done || active ? "text-ink-2" : "text-ink-4")
-                }
-              >
+              <span className={"font-sans text-[14px] transition-colors " + (done || active ? "text-ink-2" : "text-ink-4")}>
                 {label}
               </span>
             </li>

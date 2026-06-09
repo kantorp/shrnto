@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Newsreader, Inter, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
+import { PreferencesProvider } from "@/lib/preferences";
 
 const newsreader = Newsreader({
   subsets: ["latin", "latin-ext"],
@@ -22,6 +23,7 @@ const plexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "shrn.to",
   description: "Denní press intelligence",
+  robots: { index: false, follow: false },
 };
 
 export default function RootLayout({
@@ -34,7 +36,7 @@ export default function RootLayout({
       <body
         className={`${newsreader.variable} ${inter.variable} ${plexMono.variable} antialiased`}
       >
-        {children}
+        <PreferencesProvider>{children}</PreferencesProvider>
       </body>
     </html>
   );

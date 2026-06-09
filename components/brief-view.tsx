@@ -3,22 +3,26 @@
 import { useState, useEffect } from "react";
 import type { Brief } from "@/lib/brief";
 import { usePreferences } from "@/lib/preferences";
+import { useT } from "@/lib/i18n";
 import { BriefHero } from "@/components/brief-hero";
 import { RubrikaSection } from "@/components/rubrika-section";
 
 const CACHE_PREFIX = "shrnto.brief.";
 
-export function BriefView({ fallback }: { fallback: Brief }) {
+export function BriefView({ fallbackCs, fallbackEn }: { fallbackCs: Brief; fallbackEn: Brief }) {
   const { prefs, loaded } = usePreferences();
+  const t = useT();
   const [brief, setBrief] = useState<Brief | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!loaded) return;
 
+    const fallback = prefs.language === "en" ? fallbackEn : fallbackCs;
     const sourcesKey = [...prefs.sources].sort().join(",");
 
-    if (sourcesKey === "cz,sk,svet" && prefs.language === "cs") {
+    // default kombinace (všechny zdroje) → bundled brief v daném jazyce, žádné API
+    if (sourcesKey === "cz,sk,svet") {
       setBrief(fallback);
       return;
     }
@@ -43,7 +47,7 @@ export function BriefView({ fallback }: { fallback: Brief }) {
       })
       .catch(() => setBrief(fallback))
       .finally(() => setLoading(false));
-  }, [loaded, prefs.sources, prefs.language, fallback]);
+  }, [loaded, prefs.sources, prefs.language, fallbackCs, fallbackEn]);
 
   if (!loaded || (loading && !brief)) {
     return (
@@ -52,12 +56,12 @@ export function BriefView({ fallback }: { fallback: Brief }) {
         <div className="h-4 w-full animate-pulse rounded bg-divider-soft" />
         <div className="h-4 w-5/6 animate-pulse rounded bg-divider-soft" />
         <div className="h-4 w-4/6 animate-pulse rounded bg-divider-soft" />
-        <p className="mt-3 font-sans text-sm text-ink-3">Generuji tvůj brief…</p>
+        <p className="mt-3 font-sans text-sm text-ink-3">{t.brief.generating}</p>
       </div>
     );
   }
 
-  const active = brief ?? fallback;
+  const active = brief ?? (prefs.language === "en" ? fallbackEn : fallbackCs);
   const rubriky = active.rubriky.map((r) => ({
     ...r,
     stories: prefs.length === "short" ? r.stories.slice(0, 3) : r.stories,

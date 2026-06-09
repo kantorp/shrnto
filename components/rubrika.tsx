@@ -1,20 +1,12 @@
+"use client";
+
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 
 export type RubrikaId = "ekonomika" | "politika" | "nazory";
 
-const LABELS: Record<RubrikaId, string> = {
-  ekonomika: "Ekonomika",
-  politika: "Politika",
-  nazory: "Názory",
-};
-
-export function Rubrika({
-  id,
-  className,
-}: {
-  id: RubrikaId;
-  className?: string;
-}) {
+export function Rubrika({ id, className }: { id: RubrikaId; className?: string }) {
+  const t = useT();
   return (
     <span
       className={cn(
@@ -23,7 +15,7 @@ export function Rubrika({
       )}
     >
       <span className="h-1.5 w-1.5 rounded-full bg-brand" aria-hidden />
-      {LABELS[id]}
+      {t.rubriky[id]}
     </span>
   );
 }
