@@ -11,12 +11,14 @@ export type Preferences = {
   language: Language;
   sources: Region[];
   length: Length;
+  completed: boolean;
 };
 
 export const DEFAULT_PREFERENCES: Preferences = {
   language: "cs",
   sources: ["cz", "sk", "svet"],
   length: "long",
+  completed: false,
 };
 
 export const REGION_LABELS: Record<Region, string> = {
@@ -25,11 +27,10 @@ export const REGION_LABELS: Record<Region, string> = {
   svet: "Svět",
 };
 
-// zdroj článku → region (pro filtr briefu podle preferencí)
 export function sourceRegion(source: Source): Region {
   if (source === "HN") return "cz";
   if (source === "DenikN_sk") return "sk";
-  return "svet"; // FT_online, FT_print, NYT, FAZ
+  return "svet";
 }
 
 const KEY = "shrnto.preferences";
@@ -53,7 +54,6 @@ export function savePreferences(prefs: Preferences) {
   } catch {}
 }
 
-// hook pro čtení + ukládání preferencí (auto-persist do localStorage)
 export function usePreferences() {
   const [prefs, setPrefs] = useState<Preferences>(DEFAULT_PREFERENCES);
   const [loaded, setLoaded] = useState(false);
@@ -71,5 +71,14 @@ export function usePreferences() {
     });
   }, []);
 
-  return { prefs, update, loaded };
+  const reset = useCallback(() => {
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.removeItem(KEY);
+      } catch {}
+    }
+    setPrefs(DEFAULT_PREFERENCES);
+  }, []);
+
+  return { prefs, update, reset, loaded };
 }

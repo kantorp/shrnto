@@ -72,7 +72,10 @@ export default function OnboardingPage() {
         </section>
 
         <button
-          onClick={() => router.push("/loading")}
+          onClick={() => {
+            update({ completed: true });
+            router.push("/loading");
+          }}
           className="mt-2 w-fit rounded-full bg-brand px-6 py-3 font-body text-[15px] font-medium text-white transition-opacity hover:opacity-90"
         >
           Vytvořit můj brief
