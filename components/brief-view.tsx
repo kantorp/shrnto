@@ -18,7 +18,6 @@ export function BriefView({ fallback }: { fallback: Brief }) {
 
     const sourcesKey = [...prefs.sources].sort().join(",");
 
-    // default kombinace → bundled brief, žádné API (instant, funguje i na Vercelu)
     if (sourcesKey === "cz,sk,svet" && prefs.language === "cs") {
       setBrief(fallback);
       return;
@@ -34,7 +33,7 @@ export function BriefView({ fallback }: { fallback: Brief }) {
     } catch {}
 
     setLoading(true);
-    fetch(`/api/brief?sources=${sourcesKey}&length=long&language=${prefs.language}`)
+    fetch(`/api/brief?sources=${sourcesKey}&language=${prefs.language}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((data: Brief) => {
         setBrief(data);
@@ -61,14 +60,13 @@ export function BriefView({ fallback }: { fallback: Brief }) {
   const active = brief ?? fallback;
   const rubriky = active.rubriky.map((r) => ({
     ...r,
-    items: prefs.length === "short" ? r.items.slice(0, 1) : r.items,
+    stories: prefs.length === "short" ? r.stories.slice(0, 3) : r.stories,
   }));
 
   return (
     <>
       <BriefHero brief={active} />
-
-      <div className="mt-8 flex flex-col gap-8">
+      <div className="mt-10 flex flex-col gap-10">
         {rubriky.map((r) => (
           <RubrikaSection key={r.id} rubrika={r} />
         ))}

@@ -13,7 +13,6 @@ const SOURCE_LABELS: Record<Source, string> = {
 
 export function SrcBadge({
   source,
-  page,
   url,
   className,
 }: {
@@ -22,8 +21,7 @@ export function SrcBadge({
   url?: string | null;
   className?: string;
 }) {
-  const label = SOURCE_LABELS[source] ?? source;
-  const text = page != null ? `${label}/${page}` : label;
+  const text = SOURCE_LABELS[source] ?? source;
 
   const classes = cn(
     "relative -top-px inline-flex items-center rounded-[3px] border border-divider bg-surface",
