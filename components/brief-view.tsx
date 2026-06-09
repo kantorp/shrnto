@@ -18,9 +18,14 @@ export function BriefView({ fallback }: { fallback: Brief }) {
     if (!loaded) return;
 
     const sourcesKey = [...prefs.sources].sort().join(",");
-    const cacheKey = `${CACHE_PREFIX}${sourcesKey}.${prefs.language}`;
 
-    // 1) cache
+    // default kombinace → bundled brief, žádné API (instant, funguje i na Vercelu)
+    if (sourcesKey === "cz,sk,svet" && prefs.language === "cs") {
+      setBrief(fallback);
+      return;
+    }
+
+    const cacheKey = `${CACHE_PREFIX}${sourcesKey}.${prefs.language}`;
     try {
       const cached = window.localStorage.getItem(cacheKey);
       if (cached) {
@@ -29,7 +34,6 @@ export function BriefView({ fallback }: { fallback: Brief }) {
       }
     } catch {}
 
-    // 2) živé generování
     setLoading(true);
     fetch(`/api/brief?sources=${sourcesKey}&length=long&language=${prefs.language}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
@@ -39,7 +43,7 @@ export function BriefView({ fallback }: { fallback: Brief }) {
           window.localStorage.setItem(cacheKey, JSON.stringify(data));
         } catch {}
       })
-      .catch(() => setBrief(fallback)) // 3) fallback na hardcoded
+      .catch(() => setBrief(fallback))
       .finally(() => setLoading(false));
   }, [loaded, prefs.sources, prefs.language, fallback]);
 
@@ -64,7 +68,6 @@ export function BriefView({ fallback }: { fallback: Brief }) {
   return (
     <>
       <BriefHero brief={active} />
-
       <div className="mt-8">
         <SegControl
           value={prefs.length}
@@ -75,7 +78,6 @@ export function BriefView({ fallback }: { fallback: Brief }) {
           ]}
         />
       </div>
-
       <div className="mt-8 flex flex-col gap-8">
         {rubriky.map((r) => (
           <RubrikaSection key={r.id} rubrika={r} />
