@@ -3,7 +3,7 @@ import type { RubrikaId } from "@/components/rubrika";
 
 export type StorySpan =
   | { type: "text"; text: string }
-  | { type: "src"; source: Source; page?: number | null; url?: string | null };
+  | { type: "src"; source: Source; ref?: string | null; page?: number | null; url?: string | null };
 
 export type Story = {
   title: string;

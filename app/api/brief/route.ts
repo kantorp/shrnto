@@ -9,12 +9,14 @@ export const maxDuration = 60;
 const anthropic = new Anthropic();
 
 type RawArticle = {
+  id: string;
   source: string;
   page: number | null;
   headline: string;
   summary_cz: string;
   category: string;
   author: string | null;
+  url: string | null;
 };
 
 const ARTICLES = (articlesData as { articles: RawArticle[] }).articles;
@@ -36,7 +38,7 @@ export async function GET(req: Request) {
     const articleLines = filtered
       .map(
         (a) =>
-          `- [${a.source}${a.page ? "/" + a.page : ""}] (${a.category}${a.author ? ", autor: " + a.author : ""}) ${a.headline} — ${a.summary_cz}`,
+          `- {${a.id}} [${a.source}${a.page ? "/" + a.page : ""}] (${a.category}${a.author ? ", autor: " + a.author : ""}) ${a.headline} — ${a.summary_cz}`,
       )
       .join("\n");
 
@@ -57,8 +59,8 @@ ZÁSADY:
 
 FORMÁT TĚLA: tělo je pole útržků, které se střídají:
 - { "type": "text", "text": "část věty nebo věta" }
-- { "type": "src", "source": "HN", "page": 1 }   ← badge hned ZA tvrzením, které ze zdroje pochází
-Použij PŘESNÉ kódy zdroje (HN, FT_online, FT_print, NYT, FAZ, DenikN_sk). page = číslo jen pokud ho článek má, jinak null.
+- { "type": "src", "source": "HN", "ref": "art_012" }   ← badge hned ZA tvrzením; "ref" je ID článku ve složených závorkách {…} z dodaného seznamu, ze kterého tvrzení pochází
+Použij PŘESNÉ kódy zdroje (HN, FT_online, FT_print, NYT, FAZ, DenikN_sk) a PŘESNÉ ref ID z dodaných článků (nikdy si ref nevymýšlej).
 
 "spotlight" = 2–3 věty o tom nejdůležitějším pro dnešek (bez zdrojů).
 
@@ -81,9 +83,9 @@ Vrať JSON přesně v tomto tvaru:
           "author": null,
           "body": [
             { "type": "text", "text": "Vláda zvažuje úlevy na ceně elektřiny" },
-            { "type": "src", "source": "HN", "page": 1 },
+            { "type": "src", "source": "HN", "ref": "art_031" },
             { "type": "text", "text": ". FT k tomu dodává, že IEA varuje před růstem cen ropy" },
-            { "type": "src", "source": "FT_online", "page": null }
+            { "type": "src", "source": "FT_online", "ref": "art_007" }
           ]
         }
       ]
@@ -107,10 +109,29 @@ Vrať JSON přesně v tomto tvaru:
 
     const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
 
+    // dohledej reálnou URL (a doplň page) podle ref ID článku
+    const urlById = new Map(ARTICLES.map((a) => [a.id, { url: a.url, page: a.page }]));
+    for (const r of parsed.rubriky ?? []) {
+      for (const s of r.stories ?? []) {
+        for (const span of s.body ?? []) {
+          if (span.type === "src" && span.ref) {
+            const hit = urlById.get(span.ref);
+            if (hit) {
+              span.url = hit.url;
+              if (span.page == null) span.page = hit.page;
+            }
+          }
+        }
+      }
+    }
+
     const brief: Brief = {
       avatar: "PK",
-      greeting: "Dobré ráno, Pavle.",
-      dateline: "Pátek 15. května 2026 · brief 07:42",
+      greeting: language === "en" ? "Good morning, Pavel." : "Dobré ráno, Pavle.",
+      dateline:
+        language === "en"
+          ? "Friday, 15 May 2026 · brief 07:42"
+          : "Pátek 15. května 2026 · brief 07:42",
       spotlightLabel: "Dnes sledujte",
       spotlight: parsed.spotlight,
       rubriky: parsed.rubriky,
