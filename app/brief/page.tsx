@@ -21,7 +21,7 @@ export default function BriefPage() {
           </Link>
         </div>
 
-        <BriefView brief={DEMO_BRIEF} />
+        <BriefView fallback={DEMO_BRIEF} />
       </div>
     </main>
   );

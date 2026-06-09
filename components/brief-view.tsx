@@ -1,29 +1,73 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import type { Brief } from "@/lib/brief";
 import { usePreferences } from "@/lib/preferences";
 import { BriefHero } from "@/components/brief-hero";
 import { RubrikaSection } from "@/components/rubrika-section";
 import { SegControl } from "@/components/seg-control";
 
-export function BriefView({ brief }: { brief: Brief }) {
+const CACHE_PREFIX = "shrnto.brief.";
+
+export function BriefView({ fallback }: { fallback: Brief }) {
   const { prefs, update, loaded } = usePreferences();
-  if (!loaded) return null;
+  const [brief, setBrief] = useState<Brief | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const length = prefs.length;
+  useEffect(() => {
+    if (!loaded) return;
 
-  const rubriky = brief.rubriky.map((r) => ({
+    const sourcesKey = [...prefs.sources].sort().join(",");
+    const cacheKey = `${CACHE_PREFIX}${sourcesKey}.${prefs.language}`;
+
+    // 1) cache
+    try {
+      const cached = window.localStorage.getItem(cacheKey);
+      if (cached) {
+        setBrief(JSON.parse(cached));
+        return;
+      }
+    } catch {}
+
+    // 2) živé generování
+    setLoading(true);
+    fetch(`/api/brief?sources=${sourcesKey}&length=long&language=${prefs.language}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((data: Brief) => {
+        setBrief(data);
+        try {
+          window.localStorage.setItem(cacheKey, JSON.stringify(data));
+        } catch {}
+      })
+      .catch(() => setBrief(fallback)) // 3) fallback na hardcoded
+      .finally(() => setLoading(false));
+  }, [loaded, prefs.sources, prefs.language, fallback]);
+
+  if (!loaded || (loading && !brief)) {
+    return (
+      <div className="flex flex-col gap-4 py-12">
+        <div className="h-7 w-2/3 animate-pulse rounded bg-divider-soft" />
+        <div className="h-4 w-full animate-pulse rounded bg-divider-soft" />
+        <div className="h-4 w-5/6 animate-pulse rounded bg-divider-soft" />
+        <div className="h-4 w-4/6 animate-pulse rounded bg-divider-soft" />
+        <p className="mt-3 font-sans text-sm text-ink-3">Generuji tvůj brief…</p>
+      </div>
+    );
+  }
+
+  const active = brief ?? fallback;
+  const rubriky = active.rubriky.map((r) => ({
     ...r,
-    items: length === "short" ? r.items.slice(0, 1) : r.items,
+    items: prefs.length === "short" ? r.items.slice(0, 1) : r.items,
   }));
 
   return (
     <>
-      <BriefHero brief={brief} />
+      <BriefHero brief={active} />
 
       <div className="mt-8">
         <SegControl
-          value={length}
+          value={prefs.length}
           onChange={(v) => update({ length: v })}
           options={[
             { value: "short", label: "Krátký" },
