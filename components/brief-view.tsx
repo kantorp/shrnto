@@ -5,12 +5,11 @@ import type { Brief } from "@/lib/brief";
 import { usePreferences } from "@/lib/preferences";
 import { BriefHero } from "@/components/brief-hero";
 import { RubrikaSection } from "@/components/rubrika-section";
-import { SegControl } from "@/components/seg-control";
 
 const CACHE_PREFIX = "shrnto.brief.";
 
 export function BriefView({ fallback }: { fallback: Brief }) {
-  const { prefs, update, loaded } = usePreferences();
+  const { prefs, loaded } = usePreferences();
   const [brief, setBrief] = useState<Brief | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -68,16 +67,7 @@ export function BriefView({ fallback }: { fallback: Brief }) {
   return (
     <>
       <BriefHero brief={active} />
-      <div className="mt-8">
-        <SegControl
-          value={prefs.length}
-          onChange={(v) => update({ length: v })}
-          options={[
-            { value: "short", label: "Krátký" },
-            { value: "long", label: "Delší" },
-          ]}
-        />
-      </div>
+
       <div className="mt-8 flex flex-col gap-8">
         {rubriky.map((r) => (
           <RubrikaSection key={r.id} rubrika={r} />
