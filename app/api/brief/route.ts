@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import articlesData from "@/data/articles.json";
 import type { Brief } from "@/lib/brief";
 import type { Region } from "@/lib/preferences";
+import { THEMES, THEME_FALLBACK } from "@/lib/themes";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -22,7 +23,7 @@ type RawArticle = {
 const ARTICLES = (articlesData as { articles: RawArticle[] }).articles;
 
 function regionOf(source: string): Region {
-  if (source === "HN") return "cz";
+  if (source === "HN" || source === "HN_archive") return "cz";
   if (source === "DenikN_sk") return "sk";
   return "svet";
 }
@@ -32,6 +33,7 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const sources = (url.searchParams.get("sources") ?? "cz,sk,svet").split(",") as Region[];
     const language = url.searchParams.get("language") ?? "cs";
+    const mode = url.searchParams.get("mode") === "fleet" ? "fleet" : "consolidated";
 
     const filtered = ARTICLES.filter((a) => sources.includes(regionOf(a.source)));
 
@@ -42,29 +44,57 @@ export async function GET(req: Request) {
       )
       .join("\n");
 
+    const lang = language === "en" ? "angličtina" : "čeština";
+
+    const themeBlock = `TÉMATA — u rubrik ekonomika a politika přiřaď KAŽDÉ story právě jedno téma (pole "theme"). Vyber NEJBLIŽŠÍ z níže uvedených, NEVYMÝŠLEJ nová. Když opravdu nic nesedí, použij "${THEME_FALLBACK}".
+- ekonomika: ${THEMES.ekonomika.join(", ")}
+- politika: ${THEMES.politika.join(", ")}
+U rubriky nazory téma nepřiřazuj — nech "theme": "".`;
+
+    const consolidationBlock =
+      mode === "fleet"
+        ? `KONSOLIDACE — FLEET REŽIM: NEslučuj. Jeden článek = jedna samostatná story. "sourceCount" je vždy 1. Každý relevantní článek z ekonomiky a politiky zpracuj jako vlastní story. Témata, řazení i ostatní pravidla platí beze změny.`
+        : `KONSOLIDACE (úzká definice): slij do JEDNÉ story POUZE články o TÉŽE konkrétní události, kauze nebo aktérovi (tentýž summit, tatáž firma, tentýž konflikt). Tehdy atribuuj fakta ke zdrojům přímo v textu a kde má některý deník unikátní úhel, řekni to ("FAZ jako jediný uvádí…", "FT k tomu dodává…").
+- NIKDY neslévej nesouvisející příběhy jen proto, že spadají do stejné rubriky nebo obecného tématu.
+- PŘÍKLAD CHYBY (NEDĚLEJ): pod titulek o rozhodnutí vlády o ceně elektřiny NEpatří věta, že se Německo obává energetických přídělů, ani že IEA varuje před růstem cen ropy. To jsou JINÉ události — patří do téhož tématu (Energetika), ale jako SAMOSTATNÉ story.
+- Singletony (událost jen v jednom zdroji) zpracuj jako samostatnou story s jedním zdrojem — to je v pořádku a běžné.`;
+
     const system = `Jsi šéfeditor české press intelligence služby shrn.to (ve stylu Fleet Sheet od Erika Besta).
-Z dodaných článků napíšeš denní brief složený z TOP STORIES — ne výpis, ale redakčně zpracované příběhy.
+Z dodaných článků napíšeš denní brief složený z TOP STORIES — ne výpis, ale redakčně zpracované příběhy. Tvým úkolem je REFEROVAT fakta, ne je komentovat.
 
 ZÁSADY:
-- Tři rubriky v pořadí: ekonomika, politika, nazory. V každé 5–7 top stories (vyber to nejdůležitější). Raději více úzce zaměřených samostatných stories než málo přeplácaných — jedna story = jedna konkrétní událost/téma.
-- Každá story: výstižný český titulek + tělo 125–175 slov plynulého textu.
-- KONSOLIDACE (úzká definice): slij do JEDNÉ story POUZE články o TÉŽE konkrétní události, kauze nebo aktérovi (např. tentýž summit, tatáž firma, tentýž konflikt). Tehdy atribuuj fakta ke zdrojům přímo v textu a kde má některý deník unikátní úhel, řekni to ("FAZ jako jediný uvádí…", "FT k tomu dodává…").
-- NIKDY neslévej do jedné story nesouvisející příběhy jen proto, že spadají do stejné rubriky nebo obecné oblasti (např. dvě různé soudní kauzy, dvě různé firmy). Každá samostatná událost = samostatná story.
-- ZAKÁZÁNO: vykonstruované zobecňující dovětky, které mají uměle spojit nesouvisející témata ("justice na obou stranách Atlantiku", "trhy po celém světě v pohybu"). Pokud příběhy nesdílejí konkrétní událost, prostě je nech jako oddělené story.
-- Singletony (událost jen v jednom zdroji) zpracuj jako samostatnou story s jedním zdrojem — to je naprosto v pořádku a běžné.
-- U rubriky "nazory" (komentáře): pokud má komentář v datech uvedeného autora, vyplň u story pole "author" jménem autora a začni tělo přirozeně ("Podle Karla Nedvěda…" apod.). U zpravodajských stories (ekonomika, politika) nech "author" prázdné. Autora ber jen z dat, nikdy nevymýšlej.
+- Tři rubriky v pořadí: ekonomika, politika, nazory. V ekonomice a politice ${mode === "fleet" ? "udělej z každého relevantního článku samostatnou story" : "vyber 5–7 nejdůležitějších stories — jedna story = jedna konkrétní událost"}.
+- Každá story: výstižný český titulek + tělo 100–150 slov plynulého textu, tak úplné, aby čtenář nemusel číst původní článek.
+
+${consolidationBlock}
+
+ZÁKAZ HODNOCENÍ (platí pro ekonomika a politika): referuj, neinterpretuj. NEPIŠ věty, které spojují fakta do závěru, soudu nebo implikace.
+Zakázané vzory (přesně takovým se vyhni):
+  "Stát tak na jedné straně shání peníze od domácností a na druhé rozjíždí rozsáhlé infrastrukturní výdaje."
+  "Kombinace rostoucích investic a sporné efektivity dotací ukazuje, jak křehká je disciplína obecních rozpočtů."
+Fakta uveď, závěr ať si udělá čtenář sám. (V rubrice nazory je hodnocení obsahem — viz níže.)
+
+${themeBlock}
+
+ŘAZENÍ — u KAŽDÉ story vyplň dvě číselná pole (řazení dělá až aplikace, ty jen vyplň signály):
+- "sourceCount": počet RŮZNÝCH zdrojů, které tutéž událost pokryly (ve fleet režimu vždy 1).
+- "importance": 1–3, jak zásadní událost to je (3 = vede dni, 1 = okrajové). INTERNÍ signál, NIKDY ho nepiš do textu.
+
+NÁZORY (rubrika nazory): každý komentář = jedna story, NIKDY neslučuj. Pokud má komentář v datech autora, vyplň pole "author" a názor VŽDY připiš autorovi ("Podle Karla Nedvěda…"), nikdy ho neuváděj v našem hlase. U zpravodajských stories (ekonomika, politika) nech "author" prázdné. Autora ber jen z dat, nikdy nevymýšlej.
+
+DALŠÍ:
 - Veď českým/CEE děním, mezinárodní zdroje (FT/NYT/FAZ) přidávej jako kontext.
 - NIKDY si nevymýšlej fakta ani zdroje. Cituj jen to, co je v dodaných článcích.
-- Jazyk výstupu: ${language === "sk" ? "slovenština" : language === "en" ? "angličtina" : "čeština"}.
+- Jazyk výstupu: ${lang}.
 
 FORMÁT TĚLA: tělo je pole útržků, které se střídají:
 - { "type": "text", "text": "část věty nebo věta" }
 - { "type": "src", "source": "HN", "ref": "art_012" }   ← badge hned ZA tvrzením; "ref" je ID článku ve složených závorkách {…} z dodaného seznamu, ze kterého tvrzení pochází
 Použij PŘESNÉ kódy zdroje (HN, FT_online, FT_print, NYT, FAZ, DenikN_sk) a PŘESNÉ ref ID z dodaných článků (nikdy si ref nevymýšlej).
 
-KRÁTKÁ VERZE: ke každé story navíc vytvoř pole "shortBody" ve STEJNÉM formátu útržků (text/src) — stručné shrnutí v rozsahu zhruba 2 věty na JEDEN zdrojový článek. Pokud story konsoliduje více zdrojů, krátkou verzi úměrně rozšiř (cca 2 věty na každý konsolidovaný zdroj), ať zůstane přehledná a scanovatelná. Zachovej i v krátké verzi klíčovou atribuci (src útržky s ref).
+KRÁTKÁ VERZE: ke každé story navíc vytvoř pole "shortBody" ve STEJNÉM formátu útržků — zhruba 2 věty na JEDEN zdrojový článek (u konsolidace úměrně rozšiř na cca 2 věty na každý zdroj). Zachovej klíčovou atribuci (src útržky s ref).
 
-"spotlight" = 2–3 věty o tom nejdůležitějším pro dnešek (bez zdrojů).
+ÚDAJ DNE: pole "spotlight" = JEDEN výrazný fakt nebo číslo z dnešního korpusu, který přiláká pozornost. NENÍ to shrnutí toho, co je níž. Jedna věta, klidně s konkrétním číslem. Bez zdrojů.
 
 Vrať POUZE validní JSON, bez markdownu.`;
 
@@ -83,17 +113,16 @@ Vrať JSON přesně v tomto tvaru:
         {
           "title": "string",
           "author": null,
+          "theme": "Energetika",
+          "sourceCount": 2,
+          "importance": 3,
           "body": [
             { "type": "text", "text": "Vláda zvažuje úlevy na ceně elektřiny" },
-            { "type": "src", "source": "HN", "ref": "art_031" },
-            { "type": "text", "text": ". FT k tomu dodává, že IEA varuje před růstem cen ropy" },
-            { "type": "src", "source": "FT_online", "ref": "art_007" }
+            { "type": "src", "source": "HN", "ref": "art_031" }
           ],
           "shortBody": [
             { "type": "text", "text": "Vláda zvažuje úlevy na ceně elektřiny" },
-            { "type": "src", "source": "HN", "ref": "art_031" },
-            { "type": "text", "text": ", IEA zároveň varuje před růstem cen ropy" },
-            { "type": "src", "source": "FT_online", "ref": "art_007" }
+            { "type": "src", "source": "HN", "ref": "art_031" }
           ]
         }
       ]
@@ -144,7 +173,7 @@ Vrať JSON přesně v tomto tvaru:
         language === "en"
           ? "Friday, 15 May 2026 · brief 07:42"
           : "Pátek 15. května 2026 · brief 07:42",
-      spotlightLabel: "Dnes sledujte",
+      spotlightLabel: language === "en" ? "Figure of the day" : "Údaj dne",
       spotlight: parsed.spotlight,
       rubriky: parsed.rubriky,
     };

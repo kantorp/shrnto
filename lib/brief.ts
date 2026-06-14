@@ -8,6 +8,9 @@ export type StorySpan =
 export type Story = {
   title: string;
   author?: string | null;
+  theme?: string;         // ekonomika/politika: téma z lib/themes.ts; u nazory nepoužito
+  sourceCount?: number;   // počet zdrojů (řazení); u starých bundlů chybí → bere se 1
+  importance?: number;    // 1–3, interní signál řazení; u starých bundlů chybí → bere se 1
   body: StorySpan[];
   shortBody?: StorySpan[];
 };
