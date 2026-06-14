@@ -16,7 +16,41 @@ function renderBody(spans: StorySpan[]) {
   );
 }
 
+function distinctRefs(body: StorySpan[]): string[] {
+  const refs = new Set<string>();
+  for (const s of body) if (s.type === "src" && s.ref) refs.add(s.ref);
+  return [...refs];
+}
+
 function StoryArticle({ story }: { story: Story }) {
+  // Jednozdrojová story: badge jednou na konci (ne uprostřed věty).
+  // Vícezdrojová: badge u příslušných tvrzení (odlišují, co je odkud).
+  const singleSource = distinctRefs(story.body).length <= 1;
+
+  let body;
+  if (singleSource) {
+    const text = story.body
+      .map((s) => (s.type === "text" ? s.text : ""))
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .replace(/\s+([.,;:!?])/g, "$1")
+      .trim();
+    const badge = story.body.find((s) => s.type === "src");
+    body = (
+      <>
+        {text}
+        {badge && badge.type === "src" && (
+          <span className="whitespace-nowrap">
+            {"\u00A0"}
+            <SrcBadge source={badge.source} page={badge.page} url={badge.url} />
+          </span>
+        )}
+      </>
+    );
+  } else {
+    body = renderBody(story.body);
+  }
+
   return (
     <article>
       <h3 className="font-display text-lg font-medium leading-snug text-ink">
@@ -27,9 +61,7 @@ function StoryArticle({ story }: { story: Story }) {
           {story.author}
         </p>
       )}
-      <p className="mt-2 font-body text-[15px] leading-7 text-ink-2">
-        {renderBody(story.body)}
-      </p>
+      <p className="mt-2 font-body text-[15px] leading-7 text-ink-2">{body}</p>
     </article>
   );
 }
@@ -42,14 +74,12 @@ export function RubrikaSection({ rubrika }: { rubrika: BriefRubrika }) {
       <Rubrika id={rubrika.id} className="text-[13px]" />
 
       {isNazory ? (
-        // Názory: bez seskupování, jeden komentář = jeden odstavec, řazeno dle importance
         <div className="mt-6 flex flex-col gap-8">
           {sortStoriesByImportance(rubrika.stories).map((story, i) => (
             <StoryArticle key={i} story={story} />
           ))}
         </div>
       ) : (
-        // Ekonomika / Politika: seskupení podle tématu, uvnitř dle salience
         <div className="mt-8 flex flex-col gap-12">
           {groupAndSort(rubrika.stories).map((group, gi) => (
             <div key={gi}>

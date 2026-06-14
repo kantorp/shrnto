@@ -44,12 +44,9 @@ function deriveShort(body: Span[]): Span[] {
   return out;
 }
 
-// Záchrana useknutého JSONu: ořízni po posledním kompletním story a dozavři strukturu.
 function salvageJson(raw: string): string {
-  // poslední místo, kde končí kompletní story objekt: `}]}` (konec body pole + story)
   const marker = raw.lastIndexOf("}]}");
   if (marker === -1) throw new Error("nelze zachránit");
-  // za tímto story dozavřeme: stories pole, rubrika objekt, rubriky pole, kořen
   return raw.slice(0, marker + 3) + "]}]}";
 }
 
@@ -71,6 +68,11 @@ export async function GET(req: Request) {
 
     const lang = language === "en" ? "angličtina" : "čeština";
 
+    const lengthRule =
+      mode === "fleet"
+        ? `DÉLKA TĚLA: každá story má tělo 50–70 slov — stručné a scanovatelné (Fleet Sheet styl). Jedna událost, klíčová fakta, žádná vata. NIKDY nevymýšlej fakta.`
+        : `DÉLKA TĚLA: každá story má tělo 100–150 slov plynulého textu (NIKDY přes 150 slov), tak úplné, aby čtenář nemusel číst původní článek. Platí i pro jednozdrojové a méně důležité story — vytěž z článku konkrétní detaily (čísla, jména, částky, podmínky, termíny). Krátké dvouvětné shrnutí je CHYBA. Když je zdroj opravdu chudý, NIKDY nevymýšlej fakta, jen napiš méně — i tak souvislý odstavec.`;
+
     const selectionBlock =
       mode === "fleet"
         ? `VÝBĚR — FLEET REŽIM: zpracuj KAŽDÝ relevantní článek z ekonomiky a politiky jako vlastní story. Vynech jen čistý balast (lokální drobnosti, lifestyle/supplementy).`
@@ -80,8 +82,9 @@ export async function GET(req: Request) {
       mode === "fleet"
         ? `KONSOLIDACE — FLEET REŽIM: NEslučuj. Jeden článek = jedna samostatná story. "sourceCount" je vždy 1.`
         : `KONSOLIDACE (úzká definice): slij do JEDNÉ story POUZE články o TÉŽE konkrétní události, kauze nebo aktérovi (tentýž summit, tatáž firma, tentýž konflikt). Tehdy atribuuj fakta ke zdrojům přímo v textu a kde má některý deník unikátní úhel, řekni to ("FAZ jako jediný uvádí…", "FT k tomu dodává…").
-- NIKDY neslévej nesouvisející příběhy jen proto, že spadají do stejné rubriky nebo obecného tématu.
-- PŘÍKLAD CHYBY (NEDĚLEJ): pod titulek o rozhodnutí vlády o ceně elektřiny NEpatří věta, že se Německo obává energetických přídělů, ani že IEA varuje před růstem cen ropy. To jsou JINÉ události — patří do téhož tématu (Energetika), ale jako SAMOSTATNÉ story.
+- NIKDY neslévej různé události jen proto, že sdílejí TÉMA, OBLAST nebo REGION. Sdílené téma (např. "německý průmysl", "energetika", "trhy") NENÍ důvod ke sloučení — to řeší až seskupení podle tématu v aplikaci, ne text story.
+- PŘÍKLAD CHYBY 1 (NEDĚLEJ): pod titulek o rozhodnutí vlády o ceně elektřiny NEpatří věta, že IEA varuje před růstem cen ropy. Jiné události → samostatné story (obě téma Energetika).
+- PŘÍKLAD CHYBY 2 (NEDĚLEJ): krizi evropského chemického průmyslu a vlnu propouštění ve VW/BioNTech NEslévej do jedné story jen proto, že obojí je "německý/evropský průmysl". Jsou to DVĚ různé události → dvě samostatné story (obě téma Průmysl), každá se svým sourceCount.
 - Singletony (událost jen v jednom zdroji) zpracuj jako samostatnou story s jedním zdrojem — to je v pořádku a běžné.`;
 
     const system = `Jsi šéfeditor české press intelligence služby shrn.to (ve stylu Fleet Sheet od Erika Besta).
@@ -89,7 +92,7 @@ Z dodaných článků napíšeš denní brief složený z TOP STORIES — ne vý
 
 ZÁSADY:
 - Tři rubriky v pořadí: ekonomika, politika, nazory. Jedna story = jedna konkrétní událost.
-- DÉLKA TĚLA: každá story má tělo 100–150 slov plynulého textu (NIKDY přes 150 slov), tak úplné, aby čtenář nemusel číst původní článek. Platí i pro jednozdrojové a méně důležité story — vytěž z článku konkrétní detaily (čísla, jména, částky, podmínky, termíny). Krátké dvouvětné shrnutí je CHYBA. Když je zdroj opravdu chudý, NIKDY nevymýšlej fakta, jen napiš méně — i tak souvislý odstavec.
+- ${lengthRule}
 
 ${selectionBlock}
 
@@ -108,7 +111,7 @@ U rubriky nazory téma nepřiřazuj — nech "theme": "".
 
 ŘAZENÍ — u KAŽDÉ story vyplň dvě číselná pole (řazení dělá až aplikace, ty jen vyplň signály):
 - "sourceCount": počet RŮZNÝCH zdrojů (deníků), které tutéž událost pokryly (ve fleet režimu vždy 1).
-- "importance": 1–3, jak zásadní událost to je (3 = vede dni, 1 = okrajové). INTERNÍ signál, NIKDY ho nepiš do textu.
+- "importance": 1–3, jak zásadní událost to je pro čtenáře (3 = vede dni, 1 = okrajové). INTERNÍ signál, NIKDY ho nepiš do textu.
 
 NÁZORY (rubrika nazory): každý komentář = jedna story, NIKDY neslučuj. Pokud má komentář v datech autora, vyplň pole "author" a názor VŽDY připiš autorovi ("Podle Karla Nedvěda…"), nikdy ho neuváděj v našem hlase. U zpravodajských stories (ekonomika, politika) nech "author" prázdné. Autora ber jen z dat, nikdy nevymýšlej.
 

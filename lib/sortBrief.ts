@@ -1,8 +1,9 @@
 import type { Story } from "@/lib/brief";
 
+// Řazení: čtenářská důležitost (importance) vede, sourceCount rozhoduje při shodě.
 const bySalience = (a: Story, b: Story) =>
-  (b.sourceCount ?? 1) - (a.sourceCount ?? 1) ||
-  (b.importance ?? 1) - (a.importance ?? 1);
+  (b.importance ?? 1) - (a.importance ?? 1) ||
+  (b.sourceCount ?? 1) - (a.sourceCount ?? 1);
 
 export type ThemeGroup = { theme: string; stories: Story[] };
 
