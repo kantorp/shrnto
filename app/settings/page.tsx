@@ -48,18 +48,6 @@ export default function SettingsPage() {
           </div>
           <SourceChips value={prefs.sources} onChange={(v) => update({ sources: v })} />
         </section>
-
-        <section className="flex flex-col gap-3">
-          <div className="font-mono text-[11px] uppercase tracking-[0.1em] text-ink-3">{t.settings.lengthLabel}</div>
-          <SegControl
-            value={prefs.length}
-            onChange={(v) => update({ length: v })}
-            options={[
-              { value: "short", label: t.controls.short },
-              { value: "long", label: t.controls.longer },
-            ]}
-          />
-        </section>
       </div>
     </main>
   );

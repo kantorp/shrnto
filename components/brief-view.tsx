@@ -61,19 +61,12 @@ export function BriefView({ fallbackCs, fallbackEn }: { fallbackCs: Brief; fallb
   }
 
   const active = brief ?? (prefs.language === "en" ? fallbackEn : fallbackCs);
-  const rubriky = active.rubriky.map((r) => ({
-    ...r,
-    stories: r.stories.map((s) => ({
-      ...s,
-      body: prefs.length === "short" ? (s.shortBody ?? s.body) : s.body,
-    })),
-  }));
 
   return (
     <>
       <BriefHero brief={active} />
       <div className="mt-10 flex flex-col gap-10">
-        {rubriky.map((r) => (
+        {active.rubriky.map((r) => (
           <RubrikaSection key={r.id} rubrika={r} />
         ))}
       </div>

@@ -3,53 +3,27 @@ import { Rubrika } from "@/components/rubrika";
 import { SrcBadge } from "@/components/src-badge";
 import { groupAndSort, sortStoriesByImportance } from "@/lib/sortBrief";
 
-function renderBody(spans: StorySpan[]) {
-  return spans.map((s, i) =>
-    s.type === "text" ? (
-      <span key={i}>{s.text}</span>
-    ) : (
-      <span key={i} className="whitespace-nowrap">
-        {"\u00A0"}
-        <SrcBadge source={s.source} page={s.page} url={s.url} />
-      </span>
-    ),
-  );
-}
-
-function distinctRefs(body: StorySpan[]): string[] {
-  const refs = new Set<string>();
-  for (const s of body) if (s.type === "src" && s.ref) refs.add(s.ref);
-  return [...refs];
+// unikátní zdroje (deníky) ve story, v pořadí prvního výskytu
+function uniqueSources(body: StorySpan[]) {
+  const seen = new Set<string>();
+  const out: Extract<StorySpan, { type: "src" }>[] = [];
+  for (const s of body) {
+    if (s.type === "src" && !seen.has(s.source)) {
+      seen.add(s.source);
+      out.push(s);
+    }
+  }
+  return out;
 }
 
 function StoryArticle({ story }: { story: Story }) {
-  // Jednozdrojová story: badge jednou na konci (ne uprostřed věty).
-  // Vícezdrojová: badge u příslušných tvrzení (odlišují, co je odkud).
-  const singleSource = distinctRefs(story.body).length <= 1;
-
-  let body;
-  if (singleSource) {
-    const text = story.body
-      .map((s) => (s.type === "text" ? s.text : ""))
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .replace(/\s+([.,;:!?])/g, "$1")
-      .trim();
-    const badge = story.body.find((s) => s.type === "src");
-    body = (
-      <>
-        {text}
-        {badge && badge.type === "src" && (
-          <span className="whitespace-nowrap">
-            {"\u00A0"}
-            <SrcBadge source={badge.source} page={badge.page} url={badge.url} />
-          </span>
-        )}
-      </>
-    );
-  } else {
-    body = renderBody(story.body);
-  }
+  const text = story.body
+    .map((s) => (s.type === "text" ? s.text : ""))
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .replace(/\s+([.,;:!?])/g, "$1")
+    .trim();
+  const badges = uniqueSources(story.body);
 
   return (
     <article>
@@ -61,7 +35,15 @@ function StoryArticle({ story }: { story: Story }) {
           {story.author}
         </p>
       )}
-      <p className="mt-2 font-body text-[15px] leading-7 text-ink-2">{body}</p>
+      <p className="mt-2 font-body text-[15px] leading-7 text-ink-2">
+        {text}
+        {badges.map((b, i) => (
+          <span key={i} className="whitespace-nowrap">
+            {"\u00A0"}
+            <SrcBadge source={b.source} page={b.page} url={b.url} />
+          </span>
+        ))}
+      </p>
     </article>
   );
 }
