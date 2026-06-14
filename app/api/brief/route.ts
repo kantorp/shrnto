@@ -20,12 +20,37 @@ type RawArticle = {
   url: string | null;
 };
 
+type Span = { type: string; text?: string; ref?: string | null; source?: string; url?: string | null; page?: number | null };
+
 const ARTICLES = (articlesData as { articles: RawArticle[] }).articles;
 
 function regionOf(source: string): Region {
   if (source === "HN" || source === "HN_archive") return "cz";
   if (source === "DenikN_sk") return "sk";
   return "svet";
+}
+
+function deriveShort(body: Span[]): Span[] {
+  const out: Span[] = [];
+  let chars = 0;
+  for (const s of body) {
+    if (s.type === "src") {
+      out.push(s);
+    } else if (s.type === "text" && chars < 280) {
+      out.push(s);
+      chars += (s.text ?? "").length;
+    }
+  }
+  return out;
+}
+
+// Záchrana useknutého JSONu: ořízni po posledním kompletním story a dozavři strukturu.
+function salvageJson(raw: string): string {
+  // poslední místo, kde končí kompletní story objekt: `}]}` (konec body pole + story)
+  const marker = raw.lastIndexOf("}]}");
+  if (marker === -1) throw new Error("nelze zachránit");
+  // za tímto story dozavřeme: stories pole, rubrika objekt, rubriky pole, kořen
+  return raw.slice(0, marker + 3) + "]}]}";
 }
 
 export async function GET(req: Request) {
@@ -46,14 +71,14 @@ export async function GET(req: Request) {
 
     const lang = language === "en" ? "angličtina" : "čeština";
 
-    const themeBlock = `TÉMATA — u rubrik ekonomika a politika přiřaď KAŽDÉ story právě jedno téma (pole "theme"). Vyber NEJBLIŽŠÍ z níže uvedených, NEVYMÝŠLEJ nová. Když opravdu nic nesedí, použij "${THEME_FALLBACK}".
-- ekonomika: ${THEMES.ekonomika.join(", ")}
-- politika: ${THEMES.politika.join(", ")}
-U rubriky nazory téma nepřiřazuj — nech "theme": "".`;
+    const selectionBlock =
+      mode === "fleet"
+        ? `VÝBĚR — FLEET REŽIM: zpracuj KAŽDÝ relevantní článek z ekonomiky a politiky jako vlastní story. Vynech jen čistý balast (lokální drobnosti, lifestyle/supplementy).`
+        : `VÝBĚR (consolidated): zahrň každou samostatnou událost s jasným významem pro středoevropské čtenáře nebo investory — domácí i mezinárodní s dopadem na ČR/CEE, trhy, firmy, ekonomiku či politiku. Typicky 6–9 nejrelevantnějších story na rubriku, řiď se RELEVANCÍ, ne počtem. VYNECH: lokální/regionální drobnosti, lifestyle a supplementy (cestování, jazyky, koníčky), ryze zahraniční domácí kauzy bez vazby na CEE a duplicity.`;
 
     const consolidationBlock =
       mode === "fleet"
-        ? `KONSOLIDACE — FLEET REŽIM: NEslučuj. Jeden článek = jedna samostatná story. "sourceCount" je vždy 1. Každý relevantní článek z ekonomiky a politiky zpracuj jako vlastní story. Témata, řazení i ostatní pravidla platí beze změny.`
+        ? `KONSOLIDACE — FLEET REŽIM: NEslučuj. Jeden článek = jedna samostatná story. "sourceCount" je vždy 1.`
         : `KONSOLIDACE (úzká definice): slij do JEDNÉ story POUZE články o TÉŽE konkrétní události, kauze nebo aktérovi (tentýž summit, tatáž firma, tentýž konflikt). Tehdy atribuuj fakta ke zdrojům přímo v textu a kde má některý deník unikátní úhel, řekni to ("FAZ jako jediný uvádí…", "FT k tomu dodává…").
 - NIKDY neslévej nesouvisející příběhy jen proto, že spadají do stejné rubriky nebo obecného tématu.
 - PŘÍKLAD CHYBY (NEDĚLEJ): pod titulek o rozhodnutí vlády o ceně elektřiny NEpatří věta, že se Německo obává energetických přídělů, ani že IEA varuje před růstem cen ropy. To jsou JINÉ události — patří do téhož tématu (Energetika), ale jako SAMOSTATNÉ story.
@@ -63,8 +88,10 @@ U rubriky nazory téma nepřiřazuj — nech "theme": "".`;
 Z dodaných článků napíšeš denní brief složený z TOP STORIES — ne výpis, ale redakčně zpracované příběhy. Tvým úkolem je REFEROVAT fakta, ne je komentovat.
 
 ZÁSADY:
-- Tři rubriky v pořadí: ekonomika, politika, nazory. V ekonomice a politice ${mode === "fleet" ? "udělej z každého relevantního článku samostatnou story" : "vyber 5–7 nejdůležitějších stories — jedna story = jedna konkrétní událost"}.
-- Každá story: výstižný český titulek + tělo 100–150 slov plynulého textu, tak úplné, aby čtenář nemusel číst původní článek.
+- Tři rubriky v pořadí: ekonomika, politika, nazory. Jedna story = jedna konkrétní událost.
+- DÉLKA TĚLA: každá story má tělo 100–150 slov plynulého textu (NIKDY přes 150 slov), tak úplné, aby čtenář nemusel číst původní článek. Platí i pro jednozdrojové a méně důležité story — vytěž z článku konkrétní detaily (čísla, jména, částky, podmínky, termíny). Krátké dvouvětné shrnutí je CHYBA. Když je zdroj opravdu chudý, NIKDY nevymýšlej fakta, jen napiš méně — i tak souvislý odstavec.
+
+${selectionBlock}
 
 ${consolidationBlock}
 
@@ -74,10 +101,13 @@ Zakázané vzory (přesně takovým se vyhni):
   "Kombinace rostoucích investic a sporné efektivity dotací ukazuje, jak křehká je disciplína obecních rozpočtů."
 Fakta uveď, závěr ať si udělá čtenář sám. (V rubrice nazory je hodnocení obsahem — viz níže.)
 
-${themeBlock}
+TÉMATA — u rubrik ekonomika a politika přiřaď KAŽDÉ story právě jedno téma (pole "theme"). Vyber NEJBLIŽŠÍ z níže uvedených, NEVYMÝŠLEJ nová. Když opravdu nic nesedí, použij "${THEME_FALLBACK}".
+- ekonomika: ${THEMES.ekonomika.join(", ")}
+- politika: ${THEMES.politika.join(", ")}
+U rubriky nazory téma nepřiřazuj — nech "theme": "".
 
 ŘAZENÍ — u KAŽDÉ story vyplň dvě číselná pole (řazení dělá až aplikace, ty jen vyplň signály):
-- "sourceCount": počet RŮZNÝCH zdrojů, které tutéž událost pokryly (ve fleet režimu vždy 1).
+- "sourceCount": počet RŮZNÝCH zdrojů (deníků), které tutéž událost pokryly (ve fleet režimu vždy 1).
 - "importance": 1–3, jak zásadní událost to je (3 = vede dni, 1 = okrajové). INTERNÍ signál, NIKDY ho nepiš do textu.
 
 NÁZORY (rubrika nazory): každý komentář = jedna story, NIKDY neslučuj. Pokud má komentář v datech autora, vyplň pole "author" a názor VŽDY připiš autorovi ("Podle Karla Nedvěda…"), nikdy ho neuváděj v našem hlase. U zpravodajských stories (ekonomika, politika) nech "author" prázdné. Autora ber jen z dat, nikdy nevymýšlej.
@@ -90,11 +120,12 @@ DALŠÍ:
 FORMÁT TĚLA: tělo je pole útržků, které se střídají:
 - { "type": "text", "text": "část věty nebo věta" }
 - { "type": "src", "source": "HN", "ref": "art_012" }   ← badge hned ZA tvrzením; "ref" je ID článku ve složených závorkách {…} z dodaného seznamu, ze kterého tvrzení pochází
+PRAVIDLO ATRIBUCE: každý zdrojový článek (ref) uveď v rámci JEDNÉ story nejvýše JEDNOU — badge umísti za nejdůležitější tvrzení z toho článku. NEOPAKUJ tentýž ref víckrát ve stejné story. Když story konsoliduje více článků, každý z nich dostane svůj jeden badge.
 Použij PŘESNÉ kódy zdroje (HN, FT_online, FT_print, NYT, FAZ, DenikN_sk) a PŘESNÉ ref ID z dodaných článků (nikdy si ref nevymýšlej).
 
-KRÁTKÁ VERZE: ke každé story navíc vytvoř pole "shortBody" ve STEJNÉM formátu útržků — zhruba 2 věty na JEDEN zdrojový článek (u konsolidace úměrně rozšiř na cca 2 věty na každý zdroj). Zachovej klíčovou atribuci (src útržky s ref).
+ÚDAJ DNE: pole "spotlight" = JEDEN výrazný fakt nebo číslo z dnešního korpusu, který přiláká pozornost. NESMÍ to být událost ani číslo, které je zároveň některou ze story v briefu. Vyber samostatný, jinde v briefu nezmíněný fakt nebo číslo. Jedna věta. Bez zdrojů.
 
-ÚDAJ DNE: pole "spotlight" = JEDEN výrazný fakt nebo číslo z dnešního korpusu, který přiláká pozornost. NENÍ to shrnutí toho, co je níž. Jedna věta, klidně s konkrétním číslem. Bez zdrojů.
+KRITICKÉ PRAVIDLO VÝSTUPU: každý story objekt má POUZE pole "title", "author", "theme", "sourceCount", "importance", "body". POLE "shortBody" NEGENERUJ — nikdy ho do výstupu nepiš. Generování "shortBody" je chyba a zbytečně plýtvá místem; krátkou verzi si vytvoří aplikace sama z "body".
 
 Vrať POUZE validní JSON, bez markdownu.`;
 
@@ -103,7 +134,7 @@ Vrať POUZE validní JSON, bez markdownu.`;
 Články:
 ${articleLines}
 
-Vrať JSON přesně v tomto tvaru:
+Vrať JSON přesně v tomto tvaru (BEZ pole shortBody):
 {
   "spotlight": "string",
   "rubriky": [
@@ -117,10 +148,6 @@ Vrať JSON přesně v tomto tvaru:
           "sourceCount": 2,
           "importance": 3,
           "body": [
-            { "type": "text", "text": "Vláda zvažuje úlevy na ceně elektřiny" },
-            { "type": "src", "source": "HN", "ref": "art_031" }
-          ],
-          "shortBody": [
             { "type": "text", "text": "Vláda zvažuje úlevy na ceně elektřiny" },
             { "type": "src", "source": "HN", "ref": "art_031" }
           ]
@@ -139,16 +166,22 @@ Vrať JSON přesně v tomto tvaru:
       messages: [{ role: "user", content: user }],
     });
 
-    const text = resp.content
+    let text = resp.content
       .filter((b) => b.type === "text")
       .map((b) => (b as { text: string }).text)
-      .join("");
+      .join("")
+      .replace(/```json|```/g, "")
+      .trim();
 
-    const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
+    let parsed: { spotlight?: string; rubriky?: { id: string; stories: { body: Span[]; shortBody?: Span[] }[] }[] };
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      parsed = JSON.parse(salvageJson(text));
+    }
 
-    // dohledej reálnou URL (a doplň page) podle ref ID — v plné i krátké verzi
     const urlById = new Map(ARTICLES.map((a) => [a.id, { url: a.url, page: a.page }]));
-    const resolveSpans = (spans: { type: string; ref?: string; url?: string | null; page?: number | null }[] = []) => {
+    const resolveSpans = (spans: Span[] = []) => {
       for (const span of spans) {
         if (span.type === "src" && span.ref) {
           const hit = urlById.get(span.ref);
@@ -162,6 +195,7 @@ Vrať JSON přesně v tomto tvaru:
     for (const r of parsed.rubriky ?? []) {
       for (const s of r.stories ?? []) {
         resolveSpans(s.body);
+        s.shortBody = deriveShort(s.body);
         resolveSpans(s.shortBody);
       }
     }
@@ -174,15 +208,16 @@ Vrať JSON přesně v tomto tvaru:
           ? "Friday, 15 May 2026 · brief 07:42"
           : "Pátek 15. května 2026 · brief 07:42",
       spotlightLabel: language === "en" ? "Figure of the day" : "Údaj dne",
-      spotlight: parsed.spotlight,
-      rubriky: parsed.rubriky,
+      spotlight: parsed.spotlight ?? "",
+      rubriky: (parsed.rubriky ?? []) as Brief["rubriky"],
     };
 
     return new Response(JSON.stringify(brief), {
       headers: { "content-type": "application/json; charset=utf-8" },
     });
   } catch (err) {
-    console.error("brief error:", err);
-    return Response.json({ error: "Generování briefu selhalo." }, { status: 500 });
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("brief error:", msg);
+    return Response.json({ error: "Generování briefu selhalo.", detail: msg }, { status: 500 });
   }
 }

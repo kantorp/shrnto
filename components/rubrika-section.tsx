@@ -50,19 +50,22 @@ export function RubrikaSection({ rubrika }: { rubrika: BriefRubrika }) {
         </div>
       ) : (
         // Ekonomika / Politika: seskupení podle tématu, uvnitř dle salience
-        <div className="mt-6 flex flex-col gap-10">
+        <div className="mt-8 flex flex-col gap-12">
           {groupAndSort(rubrika.stories).map((group, gi) => (
-            <div key={gi} className="flex flex-col gap-8">
+            <div key={gi}>
               {group.theme && (
-                <div className="flex justify-end">
-                  <span className="font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-ink-4">
+                <div className="mb-5 flex items-center gap-3">
+                  <span className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-ink-4">
                     {group.theme}
                   </span>
+                  <span className="h-px flex-1 bg-divider-soft" aria-hidden />
                 </div>
               )}
-              {group.stories.map((story, i) => (
-                <StoryArticle key={i} story={story} />
-              ))}
+              <div className="flex flex-col gap-8">
+                {group.stories.map((story, i) => (
+                  <StoryArticle key={i} story={story} />
+                ))}
+              </div>
             </div>
           ))}
         </div>
